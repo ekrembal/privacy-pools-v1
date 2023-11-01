@@ -21,4 +21,3 @@ npx hardhat run scripts/deployPrivacyPool.js --network goerli
 ```
 
 We appreciate your interest in Privacy Pool V1 and welcome your feedback. Feel free to [report any issues](https://github.com/ekrembal/privacy-pools-v1/issues) or [submit pull requests](https://github.com/ekrembal/privacy-pools-v1/pulls) to help us improve.
-
