@@ -1,18 +1,19 @@
 const Utxo = require('./utxo')
+const ethers = require('ethers')
 const { BigNumber } = ethers
 const { transaction } = require('./index')
 const { toFixedHex, FIELD_SIZE } = require('./utils')
 const { proveInclusion } = require('./poi')
 
 const TxRecord = require('./txRecord')
-const { getNullifierEvents, getCommitmentEvents, getTxRecordEvents } = require('./events.js')
+const { getNullifierEvents, getCommitmentEvents } = require('./events.js')
 
 const DEFAULT_ZERO = '21663839004416932945382355908790599225266501822907911457504978515578255421292'
 
-async function getUtxos({ provider, tornadoPool, keypair }) {
-  const nullifierEvents = await getNullifierEvents({ provider, tornadoPool })
+async function getUtxos({ tornadoPool, keypair }) {
+  const nullifierEvents = await getNullifierEvents({ tornadoPool })
   const nullifiers = new Set(nullifierEvents.map((e) => toFixedHex(e.args.nullifier)))
-  const events = await getCommitmentEvents({ provider, tornadoPool })
+  const events = await getCommitmentEvents({ tornadoPool })
   let utxos = []
   for (const event of events) {
     let utxo = null
@@ -28,13 +29,13 @@ async function getUtxos({ provider, tornadoPool, keypair }) {
   return utxos
 }
 
-async function balance({ provider, tornadoPool, keypair }) {
-  const utxos = await getUtxos({ provider, tornadoPool, keypair })
+async function balance({ tornadoPool, keypair }) {
+  const utxos = await getUtxos({ tornadoPool, keypair })
   return utxos.reduce((sum, x) => sum.add(x.amount), BigNumber.from(0))
 }
 
-async function transact({ provider, tornadoPool, keypair, amount, recipient = 0, allowlist = null }) {
-  let inputs = await getUtxos({ provider, tornadoPool, keypair })
+async function transact({ tornadoPool, keypair, amount, recipient = 0, allowlist = null }) {
+  let inputs = await getUtxos({ tornadoPool, keypair })
   if (inputs.length > 2) {
     throw new Error('Too many utxos, contact support')
   }
@@ -78,18 +79,20 @@ async function transact({ provider, tornadoPool, keypair, amount, recipient = 0,
       publicAmount,
       index: 0,
     })
-    const proof = await proveInclusion({ provider, tornadoPool, keypair, finalTxRecord: withdrawTxRecord })
-    // console.log('Withdrawing with proof', proof)
+    const proof = await proveInclusion({ tornadoPool, keypair, finalTxRecord: withdrawTxRecord, allowlist })
+    if (!proof) {
+      throw new Error('Proof is not valid')
+    }
   }
-  return await transaction({ tornadoPool, inputs, outputs, recipient, membershipProofURI: "" })
+  return await transaction({ tornadoPool, inputs, outputs, recipient, membershipProofURI: '' })
 }
 
-async function deposit({ provider, tornadoPool, keypair, amount }) {
-  return await transact({ provider, tornadoPool, keypair, amount })
+async function deposit({ tornadoPool, keypair, amount }) {
+  return await transact({ tornadoPool, keypair, amount })
 }
 
-async function withdraw({ provider, tornadoPool, keypair, amount, recipient, allowlist = null }) {
-  return await transact({ provider, tornadoPool, keypair, amount: amount, recipient, allowlist })
+async function withdraw({ tornadoPool, keypair, amount, recipient, allowlist = null }) {
+  return await transact({ tornadoPool, keypair, amount: amount, recipient, allowlist })
 }
 
 module.exports = {
